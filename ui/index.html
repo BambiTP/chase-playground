@@ -17,6 +17,14 @@
   button.primary { background: var(--accent); border-color: var(--accent); color: #06121f; font-weight: 600; }
   input[type=number] { width: 70px; }
   .muted { color: var(--muted); }
+  .bar.map { padding-top: 6px; padding-bottom: 6px; }
+  .bar label { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+  .bar input.n { width: 52px; padding: 3px 5px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: #262a33; }
+  .seg button.on { background: var(--accent); color: #06121f; font-weight: 600; }
+  .hidden { display: none !important; }
+  .rolled { font: 12px ui-monospace, Menlo, Consolas, monospace; color: var(--muted); }
   .stage { position: relative; flex: 1; min-height: 0; }
   canvas { display: block; width: 100%; height: 100%; }
   .hud { position: absolute; left: 12px; top: 10px; font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace; color: var(--muted); white-space: pre; pointer-events: none; }
@@ -34,9 +42,31 @@
   <button id="reset">Reset</button>
   <select id="speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
   <div class="sep"></div>
-  <span class="muted">Map seed</span><input type="number" id="seed" value="7">
-  <div class="sep"></div>
   <span class="muted">Arrow keys drive</span><select id="drive"></select>
+</div>
+<div class="bar map" id="mapBar">
+  <span class="muted">Map</span>
+  <span class="seg"><button id="modeFixed" class="on">Fixed</button><button id="modeMix">Mix</button></span>
+  <span id="fixed">
+    <label>seed <input class="n" type="number" id="fSeed" value="7"></label>
+    <label>size <input class="n" type="number" id="fW" value="45" step="2" min="5"> × <input class="n" type="number" id="fH" value="45" step="2" min="5"></label>
+    <label>left up <input class="n" type="number" id="fL" value="50" min="0" max="100">%</label>
+    <label>right up <input class="n" type="number" id="fR" value="50" min="0" max="100">%</label>
+    <label>45s <input class="n" type="number" id="f45" value="50" min="0" max="100">%</label>
+  </span>
+  <span id="mix" class="hidden">
+    <label>width <input class="n" type="number" id="mWmin" value="31" step="2" min="5">–<input class="n" type="number" id="mWmax" value="59" step="2" min="5"></label>
+    <label>height <input class="n" type="number" id="mHmin" value="31" step="2" min="5">–<input class="n" type="number" id="mHmax" value="59" step="2" min="5"></label>
+    <label>left up <input class="n" type="number" id="mLmin" value="30">–<input class="n" type="number" id="mLmax" value="70">%</label>
+    <label>right up <input class="n" type="number" id="mRmin" value="30">–<input class="n" type="number" id="mRmax" value="70">%</label>
+    <label>45s <input class="n" type="number" id="m45min" value="0">–<input class="n" type="number" id="m45max" value="100">%</label>
+    <label>open tiles <input class="n" type="number" id="mOmin" value="300" title="at least">–<input class="n" type="number" id="mOmax" value="" placeholder="any" title="at most"></label>
+    <button id="roll" class="primary">New map</button>
+    <label><input type="checkbox" id="rollOnReset"> new map on every reset</label>
+  </span>
+  <span id="rolled" class="rolled"></span>
+  <button id="keep" class="hidden" title="copy this map's settings into Fixed">Keep</button>
+  <span id="scriptMap" class="muted hidden">map comes from the script</span>
 </div>
 <div class="stage">
   <canvas id="c"></canvas>
@@ -77,7 +107,7 @@ const trails = {};
 // ---------- script ----------
 // An uploaded script is a CommonJS file. Everything is optional:
 //   module.exports = {
-//     map: generateMap({ seed: 3 }) | fromAscii(`...`),   // default: generated from the seed box
+//     map: generateMap({ seed: 3 }) | fromAscii(`...`),   // default: the map row's settings
 //     setup(pg) { pg.addBall(...) },                        // default: one red and one blue ball
 //     tick(pg, state) { pg.setKeys(id, 'UR') },             // called before every tick
 //   };
@@ -104,12 +134,63 @@ function fail(e) {
   $('err').style.display = 'block';
 }
 
+// ---------- map row ----------
+// Fixed: one map from the settings. Mix: random settings inside the ranges, rerolled until the
+// map's open area (tiles a ball can reach) is inside the open-tiles range.
+let mode = 'fixed', rolled = null;   // rolled: { opts, map } from the last Mix roll
+const num = (id) => +$(id).value;
+const odd = (n) => Math.max(5, n % 2 ? n : n + 1);
+const between = (a, b) => { const lo = Math.min(a, b), hi = Math.max(a, b); return lo + Math.random() * (hi - lo); };
+const openTiles = (m) => MODS.maps.spawnTiles(m).length;
+
+function fixedOpts() {
+  return { seed: num('fSeed'), width: odd(num('fW')), height: odd(num('fH')), randLeft: num('fL') / 100, randRight: num('fR') / 100, diagonals: num('f45') / 100 };
+}
+
+function roll() {
+  const oMin = $('mOmin').value === '' ? 0 : num('mOmin'), oMax = $('mOmax').value === '' ? Infinity : num('mOmax');
+  for (let i = 0; i < 300; i++) {
+    const opts = {
+      seed: Math.floor(Math.random() * 1e6),
+      width: odd(Math.round(between(num('mWmin'), num('mWmax')))), height: odd(Math.round(between(num('mHmin'), num('mHmax')))),
+      randLeft: Math.round(between(num('mLmin'), num('mLmax'))) / 100, randRight: Math.round(between(num('mRmin'), num('mRmax'))) / 100,
+      diagonals: Math.round(between(num('m45min'), num('m45max'))) / 100,
+    };
+    const m = generateMap(opts), open = openTiles(m);
+    if (open >= oMin && open <= oMax) return { opts, map: m, open };
+  }
+  throw new Error('Mix: no map in 300 tries fits these ranges (try a wider open tiles range)');
+}
+
+function describe(o, open) {
+  return `seed ${o.seed} · ${o.width}×${o.height} · left ${Math.round(o.randLeft * 100)}% · right ${Math.round(o.randRight * 100)}% · 45s ${Math.round(o.diagonals * 100)}% · ${open} open tiles`;
+}
+
+function pickMap(newRoll) {
+  if (mode === 'fixed') { const o = fixedOpts(), m = generateMap(o); $('rolled').textContent = `${openTiles(m)} open tiles`; return { map: m, seed: o.seed }; }
+  if (newRoll || !rolled) rolled = roll();
+  $('rolled').textContent = describe(rolled.opts, rolled.open);
+  return { map: rolled.map, seed: rolled.opts.seed };
+}
+
+function setMode(m) {
+  mode = m;
+  $('modeFixed').classList.toggle('on', m === 'fixed'); $('modeMix').classList.toggle('on', m === 'mix');
+  $('fixed').classList.toggle('hidden', m !== 'fixed'); $('mix').classList.toggle('hidden', m !== 'mix');
+  $('keep').classList.toggle('hidden', m !== 'mix');
+  reset();
+}
+
 // ---------- world ----------
-function reset() {
+function reset(newRoll) {
   $('err').style.display = 'none';
   try {
-    map = script && script.map ? (typeof script.map === 'function' ? script.map(API) : script.map) : generateMap({ seed: +$('seed').value });
-    pg = new Playground({ map, seed: +$('seed').value });
+    const fromScript = !!(script && script.map);
+    $('scriptMap').classList.toggle('hidden', !fromScript);
+    let seed = 1;
+    if (fromScript) { map = typeof script.map === 'function' ? script.map(API) : script.map; $('rolled').textContent = ''; }
+    else ({ map, seed } = pickMap(newRoll === true || (mode === 'mix' && $('rollOnReset').checked)));
+    pg = new Playground({ map, seed });
     if (script && script.setup) script.setup(pg);
     else { pg.addBall({ id: 'red', team: 1 }); pg.addBall({ id: 'blue', team: 2, minDistance: 10 }); }
   } catch (e) { pg = null; fail(e); return; }
@@ -211,13 +292,23 @@ addEventListener('keydown', (e) => {
 addEventListener('keyup', (e) => { if (KEYMAP[e.code]) held[KEYMAP[e.code]] = false; });
 addEventListener('blur', () => { for (const k in held) held[k] = false; });
 // give the keyboard back to the arrows after using a control
-addEventListener('change', (e) => { if (e.target.matches('select')) e.target.blur(); });
+addEventListener('change', (e) => { if (e.target.matches('select, input[type=checkbox]')) e.target.blur(); });
 addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) b.blur(); });
 
 $('play').onclick = () => { paused = !paused; $('play').textContent = paused ? 'Run' : 'Pause'; };
 $('step').onclick = () => { if (pg) { paused = true; $('play').textContent = 'Run'; tick(); } };
-$('reset').onclick = reset;
-$('seed').onchange = reset;
+$('reset').onclick = () => reset();
+$('modeFixed').onclick = () => setMode('fixed');
+$('modeMix').onclick = () => setMode('mix');
+$('roll').onclick = () => reset(true);
+$('keep').onclick = () => {
+  if (!rolled) return;
+  const o = rolled.opts;
+  $('fSeed').value = o.seed; $('fW').value = o.width; $('fH').value = o.height;
+  $('fL').value = Math.round(o.randLeft * 100); $('fR').value = Math.round(o.randRight * 100); $('f45').value = Math.round(o.diagonals * 100);
+  setMode('fixed');
+};
+for (const id of ['fSeed', 'fW', 'fH', 'fL', 'fR', 'f45']) $(id).addEventListener('change', () => reset());
 
 reset();
 requestAnimationFrame(frame);

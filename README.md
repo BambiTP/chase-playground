@@ -40,7 +40,14 @@ module.exports = {
 };
 ```
 
-**Reset** rebuilds the map and runs `setup` again. If the script throws, it pauses and shows the error.
+The map row has two modes:
+
+- **Fixed** builds one map from the BuildAMapWorkshop settings: seed, size, left up %, right up % and 45s chance.
+- **Mix** rolls a random map with each setting picked inside a range you set. **Open tiles** limits how big the reachable area can be, and it rerolls until a map fits. **New map** rolls again, **new map on every reset** rolls on each reset, and **Keep** copies the rolled map's settings into Fixed.
+
+A script that sets its own `map` overrides the map row.
+
+**Reset** rebuilds the map and runs `setup` again. If the script throws, the page pauses and shows the error.
 
 ## Maps
 
