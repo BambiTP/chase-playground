@@ -5,7 +5,6 @@ const { PHYSICS } = require('./src/physics');
 const maps = require('./src/maps');
 const { generateMap } = require('./src/mapgen');
 const { loadMapFile, resolveMap } = require('./src/maps-node');
-const { bots, toward } = require('./src/bots');
 const scenario = require('./src/scenario');
 
 // load a scenario (object or path to a .js / .json file), resolve its map, run it
@@ -30,6 +29,5 @@ module.exports = {
   Playground, PHYSICS, KEYS, parseKeys, keysToString,
   generateMap, loadMapFile, resolveMap,
   fromAscii: maps.fromAscii, toAscii: maps.toAscii, fromGrid: maps.fromGrid, interiorTiles: maps.interiorTiles,
-  bots, toward,
   parseScript: scenario.parseScript, runScenario, prepareScenario,
 };

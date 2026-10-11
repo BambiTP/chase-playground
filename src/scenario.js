@@ -2,14 +2,14 @@
 //
 // {
 //   name: 'my scenario',
-//   seed: 1,                            random spawns / random bots
+//   seed: 1,                            random spawns (and ctx.rng in bots)
 //   map: { generate: { seed: 7, width: 45, height: 45 } }   (or { ascii }, { png, json }, a map)
 //   ticks: 600,                         60 ticks = 1 second
 //   stopWhen: 'tag',                    optional: 'tag' (any two balls touch) or (pg) => boolean
 //   ballCollisions: true,               false = balls pass through each other
 //   balls: [
 //     { id: 'runner', team: 2, tile: [20, 22], keys: 'R30 UR60 _10 L' },
-//     { id: 'chaser', team: 1, bot: 'chase', target: 'runner' },
+//     { id: 'chaser', team: 1, bot: myChaser, target: 'runner' },
 //   ],
 // }
 //
@@ -20,12 +20,15 @@
 //   keys: 'R30 UR60 _10 L'      key script: keys + how many ticks to hold them; '_' = nothing,
 //                               the last group can leave the count off to hold until the end
 //   keys: [[0, 'R'], [30, 'UR'], [90, '']]   from tick N on, hold these keys
-//   bot: 'chase' | 'lead' | 'flee' | 'random' | 'idle' | (ctx) => keys   (see bots.js)
-//   + any options the bot reads (target, lead, hold)
+//   bot: (ctx) => keys          your own bot, called before every tick with
+//                               ctx = { tick, me, target, balls, pg, rng, state, opts }
+//                               (me/target/balls[id]: { x, y, vx, vy } in metres and m/s;
+//                               target: opts.target or the first ball on the other team;
+//                               opts: this ball's spec, so it can carry your own settings)
+//   neither: the ball holds nothing (set its keys yourself with pg.setKeys)
 (function () {
 const isNode = typeof module !== 'undefined' && module.exports;
 const { Playground, parseKeys, keysToString } = isNode ? require('./world') : globalThis.CPWorld;
-const { bots } = isNode ? require('./bots') : globalThis.CPBots;
 const { makeRng } = isNode ? require('./rng') : globalThis.CPRng;
 
 // 'R30 UR60 _10 L' -> [[0, 'R'], [30, 'UR'], [90, ''], [100, 'L']]
@@ -75,9 +78,8 @@ function createRun(scn, map) {
     const ball = pg.addBall(s);
     if (spec.bot && spec.keys) throw new Error(`ball ${ball.id}: give it keys or a bot, not both`);
     if (spec.bot) {
-      const fn = typeof spec.bot === 'function' ? spec.bot : bots[spec.bot];
-      if (!fn) throw new Error(`ball ${ball.id}: unknown bot '${spec.bot}' (have: ${Object.keys(bots).join(', ')})`);
-      ctrls.push({ ball, bot: fn, opts: spec, rng: makeRng((scn.seed ?? 1) * 7919 + i), state: {} });
+      if (typeof spec.bot !== 'function') throw new Error(`ball ${ball.id}: bot must be a function (ctx) => keys`);
+      ctrls.push({ ball, bot: spec.bot, opts: spec, rng: makeRng((scn.seed ?? 1) * 7919 + i), state: {} });
     } else if (spec.keys !== undefined) ctrls.push({ ball, tl: timeline(spec.keys) });
   });
   const targetOf = (c) => {

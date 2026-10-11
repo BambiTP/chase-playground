@@ -19,6 +19,6 @@ module.exports = {
   balls: [
     // timeline form: from tick N on, hold these keys
     { id: 'runner', team: 2, mark: 'r', keys: [[0, 'down'], [40, 'down right'], [100, 'right'], [200, 'up right']] },
-    { id: 'chaser', team: 1, mark: 'c', bot: 'lead', lead: 0.4 },
+    { id: 'chaser', team: 1, mark: 'c', keys: 'UL50 L60 DL' },
   ],
 };

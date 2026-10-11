@@ -73,10 +73,10 @@ test('example scenarios all run', async () => {
   }
 });
 
-test('a chase bot catches a ball that stands still', async () => {
+test('a bot function steers its ball: a greedy chaser catches a ball that stands still', async () => {
   const r = await cp.runScenario({
     map: { generate: { seed: 2 } }, ticks: 1800, stopWhen: 'tag', seed: 3,
-    balls: [{ id: 'runner', team: 2, bot: 'idle' }, { id: 'chaser', team: 1, bot: 'chase', minDistance: 8 }],
+    balls: [{ id: 'runner', team: 2 }, { id: 'chaser', team: 1, minDistance: 8, bot: ({ me, target }) => (target.x > me.x ? 'R' : 'L') + (target.y > me.y ? 'D' : 'U') }],
   }, { trace: false });
   assert.strictEqual(r.stopped, 'tag', 'chaser never reached the runner');
 });

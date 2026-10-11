@@ -1,7 +1,7 @@
 # chase-playground
 
 TagPro ball movement and nothing else, for training bots to chase. Balls spawn inside a map,
-you (or a bot, or a key script) hold arrow keys, and they move with **TagPro's exact default
+you (or a key script, or your own bot) hold arrow keys, and they move with **TagPro's exact default
 physics**. There are no boosts, spikes, flags, powerups or tags. The only collisions are balls
 against walls and against each other.
 
@@ -65,14 +65,14 @@ other ball. Random spawns land on tile centres.
 // scenarios/straight-chase.js
 module.exports = {
   name: 'straight chase',
-  seed: 1,                                  // random spawns and random bots
+  seed: 1,                                  // random spawns
   map: { generate: { seed: 7 } },
   ticks: 900,                               // 60 ticks = 1 s
   stopWhen: 'tag',                          // stop when any two balls touch (or (pg) => boolean)
   ballCollisions: true,                     // false = balls pass through each other
   balls: [
     { id: 'runner', team: 2, tile: [22, 22], keys: 'R60 UR45 _15 L' },
-    { id: 'chaser', team: 1, tile: [12, 22], bot: 'chase', target: 'runner' },
+    { id: 'chaser', team: 1, tile: [12, 22], keys: 'R90 UR40 R' },
   ],
 };
 ```
@@ -85,8 +85,8 @@ from the other balls). Add `vel: [vx, vy]` to give it a starting velocity.
 
 - `keys: 'R60 UR45 _15 L'`: a key script. Each group is the keys to hold (U D L R, `_` for none) followed by how many ticks to hold them. The last group can leave off the count to hold until the end.
 - `keys: [[0, 'R'], [60, 'up right'], [105, '']]`: from tick N on, hold these keys.
-- `bot: 'chase' | 'lead' | 'flee' | 'random' | 'idle'`: a built-in bot (`src/bots.js`). Bots take options such as `target`, `lead: 0.3` (seconds) and `hold: 20` (ticks).
-- `bot: (ctx) => 'UR'`: your own bot. It is called before every tick with `ctx.me`, `ctx.target` and `ctx.balls[id]` (each has `x, y, vx, vy`), plus `ctx.tick`, a seeded `ctx.rng`, a `ctx.state` object that persists between ticks, and `ctx.pg`. See `scenarios/custom-bot.js`.
+- `bot: (ctx) => 'UR'`: your own bot (there are no built-in ones). It is called before every tick with `ctx.me`, `ctx.target` and `ctx.balls[id]` (each has `x, y, vx, vy`), plus `ctx.tick`, a seeded `ctx.rng`, a `ctx.state` object that persists between ticks, `ctx.pg`, and `ctx.opts` (the ball's spec, for your own settings). `ctx.target` is the ball named in `target:`, or else the first ball on the other team. See `scenarios/custom-bot.js`.
+- Neither: the ball holds nothing until you set its keys with `pg.setKeys`.
 
 `node bin/run.js <scenario>` prints when the first touch happened and where every ball ended
 up. `--out trace.json` (or `.csv`) writes every tick, `--every 15` thins the trace, and
@@ -95,7 +95,7 @@ up. `--out trace.json` (or `.csv`) writes every tick, `--every 15` thins the tra
 ### Recording keys in the viewer
 
 `npm run viewer` opens a page where you can pick a map source, choose who drives each ball (you
-on arrows or WASD, or a bot), and play. It can also load any file in `scenarios/`. Everything
+on arrows or WASD, the scenario's keys or bot, or nothing), and play. It can also load any file in `scenarios/`. Everything
 you press is recorded as a key script. **Copy as scenario** gives you a scenario file with the
 exact start positions and your keys, and it replays the run bit for bit in Node.
 
@@ -125,7 +125,7 @@ Other entry points:
 
 `node bin/serve.js` speaks JSON lines on stdin/stdout: `reset` takes a scenario, and `step`
 takes keys and returns the state. `examples/python_client.py` is a complete example: a
-greedy chaser written in Python against the built-in `flee` bot.
+greedy chaser written in Python against a runner on a key script.
 
 ## How it's checked against the real code
 
@@ -162,7 +162,6 @@ src/world.js        Playground: walls, balls, step, contacts
 src/maps.js         PNG colours -> tiles, ASCII maps, spawn area      (browser + Node)
 src/mapgen.js       BuildAMapWorkshop generator, seeded               (browser + Node)
 src/maps-node.js    PNG files                                         (Node)
-src/bots.js         built-in bots
 src/scenario.js     scenarios, key scripts
 bin/run.js          run a scenario from the command line
 bin/viewer.js       viewer server

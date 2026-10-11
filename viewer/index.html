@@ -130,13 +130,11 @@
 <script src="/src/maps.js"></script>
 <script src="/src/mapgen.js"></script>
 <script src="/src/world.js"></script>
-<script src="/src/bots.js"></script>
 <script src="/src/scenario.js"></script>
 <script>
 const { PHYSICS: PH } = CPPhysics;
 const { keysToString } = CPWorld;
 const $ = (id) => document.getElementById(id);
-const BOT_NAMES = Object.keys(CPBots.bots);
 
 // ---------- state ----------
 let map = null, mapSpec = null;   // the map and how to get it again (for "copy as scenario")
@@ -204,19 +202,19 @@ function quickSetup() {
     ],
   };
   const keep = (r, d) => (r && r !== 'scenario' ? r : d);
-  role = { runner: keep(role.runner, 'you'), chaser: keep(role.chaser, 'chase') };
+  role = { runner: keep(role.runner, 'you'), chaser: keep(role.chaser, 'still') };
   renderBallRows();
 }
 
 function renderBallRows() {
   const box = $('ballRows'); box.innerHTML = '';
   for (const b of scn.balls) {
-    const opts = ['you'].concat(fromFile && (b.keys !== undefined || b.bot) ? ['scenario'] : []).concat(BOT_NAMES);
+    const opts = ['you'].concat(fromFile && (b.keys !== undefined || b.bot) ? ['scenario'] : []).concat(['still']);
     const l = document.createElement('label');
     l.innerHTML = `<span style="color:${b.team === 2 ? 'var(--blue)' : 'var(--red)'}">● ${b.id}</span>`;
     const s = document.createElement('select');
-    for (const o of opts) s.add(new Option(o === 'scenario' ? `scenario (${typeof b.bot === 'function' ? 'custom bot' : b.bot || 'key script'})` : o === 'you' ? 'you (keyboard)' : 'bot: ' + o, o));
-    s.value = role[b.id] || (fromFile ? (b.keys !== undefined || b.bot ? 'scenario' : 'idle') : 'idle');
+    for (const o of opts) s.add(new Option(o === 'scenario' ? `scenario (${typeof b.bot === 'function' ? 'bot function' : 'key script'})` : o === 'you' ? 'you (keyboard)' : 'nothing (holds no keys)', o));
+    s.value = role[b.id] || (fromFile && (b.keys !== undefined || b.bot) ? 'scenario' : 'still');
     role[b.id] = s.value;
     s.onchange = () => { role[b.id] = s.value; reset(true); };
     l.appendChild(s); box.appendChild(l);
@@ -229,7 +227,7 @@ function effectiveScenario(keepSpawns) {
   s.balls = scn.balls.map((b, i) => {
     const o = Object.assign({}, b);
     const r = role[b.id];
-    if (r !== 'scenario') { delete o.keys; delete o.bot; if (r !== 'you') o.bot = r; }
+    if (r !== 'scenario') { delete o.keys; delete o.bot; }
     if (!fromFile && b.id === 'chaser') o.minDistance = +$('minDist').value;
     if (keepSpawns && startState && startState[b.id]) { delete o.mark; delete o.tile; o.pos = startState[b.id].pos; o.vel = startState[b.id].vel; }
     return o;
@@ -302,8 +300,7 @@ function scenarioSource() {
     if (role[b.id] === 'you') parts.push(`keys: ${lit(script(rec[b.id]))}`);
     else if (b.keys !== undefined) parts.push(`keys: ${lit(b.keys)}`);
     else if (typeof b.bot === 'function') parts.push(`bot: ${b.bot.toString()}`);
-    else if (b.bot) parts.push(`bot: ${lit(b.bot)}`);
-    for (const k of ['target', 'lead', 'hold']) if (b[k] !== undefined) parts.push(`${k}: ${lit(b[k])}`);
+    if (b.target !== undefined) parts.push(`target: ${lit(b.target)}`);
     return `    { ${parts.join(', ')} },`;
   });
   const mapLine = spec.ascii ? `{ ascii: \`\n${spec.ascii.replace(/^\n+/, '')}\` }` : lit(spec) + (spec.png ? ' // save the PNG there' : '');

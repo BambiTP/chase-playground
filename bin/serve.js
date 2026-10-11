@@ -2,7 +2,7 @@
 // JSON lines over stdin/stdout, for driving the playground from another language (see
 // examples/python_client.py). One request per line, one reply per line.
 //
-//   {"cmd": "reset", "scenario": {...}}        a scenario object (bots by name), or
+//   {"cmd": "reset", "scenario": {...}}        a scenario object (key scripts; bots need a file), or
 //   {"cmd": "reset", "file": "scenarios/x.js"} a scenario file
 //        -> {"ok": true, "state": {...}, "map": {"width", "height", "tiles"}}
 //   {"cmd": "step", "keys": {"chaser": "UR"}, "n": 1}

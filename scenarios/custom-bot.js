@@ -17,7 +17,7 @@ module.exports = {
   ticks: 1200,
   stopWhen: 'tag',
   balls: [
-    { id: 'runner', team: 2, bot: 'random', hold: 30 },
+    { id: 'runner', team: 2, keys: 'R40 DR30 D40 L60 UL30 U' },
     { id: 'chaser', team: 1, bot: zigzagChaser, minDistance: 6 },
   ],
 };

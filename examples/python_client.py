@@ -1,4 +1,4 @@
-"""Drive the playground from Python: a greedy chaser written here, the runner flees (built-in bot).
+"""Drive the playground from Python: a greedy chaser written here against a scripted runner.
 
     python3 examples/python_client.py
 
@@ -53,7 +53,7 @@ if __name__ == "__main__":
             "seed": episode,
             "map": {"generate": {"seed": 7}},
             "balls": [
-                {"id": "runner", "team": 2, "bot": "flee"},
+                {"id": "runner", "team": 2, "keys": "R40 DR30 D40 L60 UL30 U"},
                 {"id": "chaser", "team": 1, "minDistance": 10},  # no bot: we drive it
             ],
         })
