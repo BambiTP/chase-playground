@@ -6,6 +6,7 @@
 //
 // width/height must be odd (the workshop's own inputs step by 2). diagonals is the workshop's
 // "rand45s" slider; 0 = no 45 degree walls (the workshop only adds them when you press "45's").
+(() => { // own scope, so ui/index.html can load these files as plain <script> tags
 const { makeRng } = require('./rng');
 const { fromGrid } = require('./maps');
 
@@ -154,3 +155,4 @@ function generateMap(opts = {}) {
 }
 
 module.exports = { generateMap };
+})();

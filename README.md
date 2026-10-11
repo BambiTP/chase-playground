@@ -24,6 +24,24 @@ while (pg.tick < 600) {
 
 Examples: `node examples/basic.js`, `examples/ascii-map.js`, `examples/chase-bot.js`.
 
+## UI
+
+Open `ui/index.html` in a browser. You don't need a server or a build step. It shows the map and
+the balls, and the arrow keys drive whichever ball you pick. **Upload script** loads a JS file that
+sets up the balls and controls them. `examples/ui-script.js` is a chaser that respawns the runner
+on every tag:
+
+```js
+const { generateMap } = require('chase-playground');
+module.exports = {
+  map: generateMap({ seed: 3 }),          // optional: default is the seed box
+  setup(pg) { pg.addBall({ id: 'runner', team: 2 }); pg.addBall({ id: 'chaser', team: 1 }); },
+  tick(pg, state) { pg.setKeys('chaser', 'UR'); },   // before every tick; state = pg.state()
+};
+```
+
+**Reset** rebuilds the map and runs `setup` again. If the script throws, it pauses and shows the error.
+
 ## Maps
 
 - `generateMap({ seed, width: 45, height: 45, randLeft: 0.5, randRight: 0.5, diagonals: 0.5 })` is the [BuildAMapWorkshop](https://github.com/BambiTP/BuildAMapWorkshop) generator with a seed. `width` and `height` must be odd.

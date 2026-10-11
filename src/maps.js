@@ -1,6 +1,7 @@
 // maps.js - a map is { name, width, height, tiles } with tiles[x][y] = TagPro tile id
 // (column-major, like TagPro's own map packet). Only walls matter: 1 (square) and 1.1-1.4
 // (45 degree). 0 is empty space, anything else is open floor.
+(() => { // own scope, so ui/index.html can load these files as plain <script> tags
 const WALLS = [1, 1.1, 1.2, 1.3, 1.4];
 const isWall = (t) => WALLS.includes(t);
 
@@ -68,3 +69,4 @@ function spawnTiles(map) {
 }
 
 module.exports = { fromAscii, toAscii, fromGrid, spawnTiles, isWall };
+})();

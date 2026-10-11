@@ -10,6 +10,7 @@
 //   - a held key adds 0.025 m/s per tick on its axis while the speed on that axis is below 2.5 m/s
 //
 // Units: metres, m/s, radians. Tile (tx, ty) is centred on (tx * 0.4, ty * 0.4). TagPro px = m * 100.
+(() => { // own scope, so ui/index.html can load these files as plain <script> tags
 const Box2D = require('../engine/box2d');
 const { makeRng } = require('./rng');
 const { spawnTiles } = require('./maps');
@@ -235,3 +236,4 @@ class Playground {
 }
 
 module.exports = { Playground, PHYSICS, parseKeys, keysToString };
+})();
