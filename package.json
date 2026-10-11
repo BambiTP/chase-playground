@@ -1,19 +1,7 @@
 {
   "name": "chase-playground",
-  "version": "0.1.0",
-  "description": "TagPro ball movement with the exact default physics, for training chase bots",
+  "version": "0.2.0",
+  "description": "TagPro ball movement with the exact default physics: make a map, spawn balls, drive them",
   "main": "index.js",
-  "scripts": {
-    "test": "node --test",
-    "run": "node bin/run.js",
-    "viewer": "node bin/viewer.js",
-    "serve": "node bin/serve.js"
-  },
-  "license": "ISC",
-  "dependencies": {
-    "pngjs": "^7.0.0"
-  },
-  "engines": {
-    "node": ">=18"
-  }
+  "license": "ISC"
 }

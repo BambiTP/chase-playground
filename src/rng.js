@@ -1,5 +1,4 @@
 // rng.js - small seeded RNG (mulberry32) so maps, spawns and bots are reproducible.
-(function () {
 function makeRng(seed) {
   if (typeof seed === 'function') return seed;
   let a = (seed === undefined ? (Math.random() * 2 ** 32) : Number(seed)) >>> 0;
@@ -12,7 +11,4 @@ function makeRng(seed) {
   };
 }
 
-const api = { makeRng };
-if (typeof module !== 'undefined' && module.exports) module.exports = api;
-else globalThis.CPRng = api;
-})();
+module.exports = { makeRng };

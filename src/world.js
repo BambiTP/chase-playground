@@ -1,47 +1,68 @@
-// world.js - the playground: TagPro balls moving on a map's walls, nothing else.
+// world.js - TagPro balls moving on a map's walls, nothing else.
 //
-// The physics is tagpro-local's GameRoom (engine/game.js) with everything but movement cut out,
-// kept in the same order so it stays bit-for-bit identical (test/parity.test.js checks that):
-//   - same Box2D build as the official client (engine/box2d.js, vendored unchanged)
+// The physics is tagpro-local's game server (engine/game.js) with everything but movement cut
+// out, kept in the same order so it is bit-for-bit identical to it:
+//   - same Box2D build as the official client (engine/box2d.js, unchanged)
 //   - walls: one static body per wall tile, square or 45 degree triangle, built column by column
 //   - balls: radius 0.19 m circles, created inactive at (-100, -100), then activated where they spawn
-//   - each tick: wake every ball, world.Step(1/60, 8, 3), THEN add key acceleration (the real server
-//     accelerates after the step; tagpro-local matched replays 99.7% that way vs 94% before it)
-//   - a held key adds ac (0.025 m/s) on its axis while the speed on that axis is below ms (2.5 m/s)
+//   - each tick: wake every ball, world.Step(1/60, 8, 3), THEN add key acceleration (the real
+//     server accelerates after the step)
+//   - a held key adds 0.025 m/s per tick on its axis while the speed on that axis is below 2.5 m/s
 //
-// Units are Box2D's: metres, m/s, radians. Tile (tx, ty) is centred on (tx * 0.4, ty * 0.4).
-// TagPro pixels are metres * 100.
-(function () {
-const isNode = typeof module !== 'undefined' && module.exports;
-const Box2D = isNode ? require('../engine/box2d') : globalThis.Box2D;
-const { PHYSICS: PH, ballFilter } = isNode ? require('./physics') : globalThis.CPPhysics;
-const { makeRng } = isNode ? require('./rng') : globalThis.CPRng;
-const { interiorTiles } = isNode ? require('./maps') : globalThis.CPMaps;
+// Units: metres, m/s, radians. Tile (tx, ty) is centred on (tx * 0.4, ty * 0.4). TagPro px = m * 100.
+const Box2D = require('../engine/box2d');
+const { makeRng } = require('./rng');
+const { spawnTiles } = require('./maps');
 const V = Box2D.Common.Math.b2Vec2;
+
+// TagPro's defaults (tagpro-local engine/constants.js, from the official client)
+const PHYSICS = {
+  TILE: 0.4,             // metres per tile
+  STEP: 1 / 60,          // one tick
+  VELOCITY_ITERATIONS: 8,
+  POSITION_ITERATIONS: 3,
+  BALL_RADIUS: 0.19,
+  BALL_DENSITY: 1,
+  BALL_FRICTION: 0.5,
+  BALL_RESTITUTION: 0.2,
+  LINEAR_DAMPING: 0.5,
+  ANGULAR_DAMPING: 0.5,
+  WALL_FRICTION: 0.5,
+  WALL_RESTITUTION: 0.2,
+  MAX_SPEED: 2.5,        // a key only adds speed on its axis while |v| on that axis is below this
+  ACCEL: 0.025,          // m/s added per tick per held key
+};
+const PH = PHYSICS;
+
+// collision filters from the official client: red 32, blue 64, everything 126.
+// ballCollisions false = TagPro's "noPlayerCollisions" ghost mode
+function ballFilter(team, ballCollisions) {
+  return { categoryBits: team === 2 ? 64 : 32, maskBits: ballCollisions === false ? 126 & ~96 : 126 };
+}
+
 const KEYS = ['up', 'down', 'left', 'right'];
 
-// keys: { up, down, left, right } | 'UL' | 'up left' | ['up', 'left'] | '' / null (nothing held)
+// keys: { up, down, left, right } | 'UL' | 'up left' | ['up', 'left'] | '' or null (nothing)
 function parseKeys(k) {
   const out = { up: false, down: false, left: false, right: false };
   if (!k) return out;
   if (Array.isArray(k)) { for (const n of k) out[keyName(n)] = true; return out; }
   if (typeof k === 'object') { for (const n of KEYS) out[n] = !!k[n]; return out; }
   const s = String(k).trim();
-  if (!s || s === '_' || s === '-') return out;
-  const parts = /[\s,+]/.test(s) || s.length > 4 || /^(up|down|left|right)$/i.test(s) ? s.split(/[\s,+]+/) : Array.from(s);
+  const parts = /[\s,+]/.test(s) || /^(up|down|left|right)$/i.test(s) ? s.split(/[\s,+]+/) : Array.from(s);
   for (const n of parts) if (n) out[keyName(n)] = true;
   return out;
 }
 function keyName(n) {
   const k = String(n).toLowerCase();
-  const m = { u: 'up', d: 'down', l: 'left', r: 'right', w: 'up', s: 'down', a: 'left' }[k] || k;
+  const m = { u: 'up', d: 'down', l: 'left', r: 'right' }[k] || k;
   if (!KEYS.includes(m)) throw new Error(`unknown key '${n}' (use up/down/left/right or U/D/L/R)`);
   return m;
 }
 function keysToString(k) { return (k.up ? 'U' : '') + (k.down ? 'D' : '') + (k.left ? 'L' : '') + (k.right ? 'R' : ''); }
 
 class Playground {
-  // opts: { map, ballCollisions: true, seed }
+  // opts: { map, ballCollisions: true, seed: 1 (for random spawns) }
   constructor(opts = {}) {
     if (!opts.map) throw new Error('Playground needs a map');
     this.map = opts.map;
@@ -50,20 +71,16 @@ class Playground {
     this.tick = 0;
     this.balls = [];
     this.byId = {};
-    this.interior = interiorTiles(this.map);
-    this.buildWorld();
-  }
-
-  buildWorld() {
+    this.nextId = 1;
+    this.spawnable = spawnTiles(this.map);
     this.world = new Box2D.Dynamics.b2World(new V(0, 0), true);
     const fd = new Box2D.Dynamics.b2FixtureDef();
     const bd = new Box2D.Dynamics.b2BodyDef();
     fd.density = 1; fd.friction = PH.WALL_FRICTION; fd.restitution = PH.WALL_RESTITUTION;
     fd.filter.categoryBits = -1;
     bd.type = Box2D.Dynamics.b2Body.b2_staticBody;
-    const tiles = this.map.tiles;
     for (let x = 0; x < this.map.width; x++) for (let y = 0; y < this.map.height; y++) {
-      const t = tiles[x][y];
+      const t = this.map.tiles[x][y];
       if (Math.floor(t) !== 1) continue;
       fd.shape = new Box2D.Collision.Shapes.b2PolygonShape();
       if (t === 1.1) fd.shape.SetAsArray([new V(-0.2, 0.2), new V(-0.2, -0.2), new V(0.2, 0.2)]);
@@ -77,17 +94,17 @@ class Playground {
   }
 
   // spec: {
-  //   id: 'chaser',                 default 'ball<n>'
-  //   team: 1 | 2,                  red/blue; only changes the colour (and the collision category)
-  //   tile: [tx, ty]                spawn on a tile's centre, or
-  //   pos: [x, y]                   exact position in metres, or neither for a random interior tile
-  //   vel: [vx, vy]                 starting velocity, m/s (default 0)
-  //   keys: 'UR'                    keys held from the start
-  //   minDistance: tiles            random spawn: at least this far from every other ball
-  //   ac, ms                        override acceleration / max speed (defaults are TagPro's)
+  //   id: 'chaser'          default 'ball1', 'ball2', ...
+  //   team: 1 | 2           red / blue (default alternates)
+  //   tile: [tx, ty]        spawn on a tile's centre, or
+  //   pos: [x, y]           exact position in metres, or neither for a random open tile
+  //   minDistance: tiles    random spawn: at least this far from the other balls (if it fits)
+  //   vel: [vx, vy]         starting velocity, m/s
+  //   keys: 'UR'            keys held from the start
   // }
   addBall(spec = {}) {
-    const id = spec.id || 'ball' + (this.balls.length + 1);
+    let id = spec.id;
+    while (!id || (!spec.id && this.byId[id])) id = 'ball' + this.nextId++;
     if (this.byId[id]) throw new Error(`duplicate ball id '${id}'`);
     const team = spec.team || (this.balls.length % 2 ? 2 : 1);
     const fd = new Box2D.Dynamics.b2FixtureDef();
@@ -102,45 +119,48 @@ class Playground {
     body.CreateFixture(fd);
     body.SetPosition(new V(-100, -100));
     body.SetActive(false);
-    const ball = {
-      id, team, body,
-      ac: spec.ac ?? PH.ACCEL, ms: spec.ms ?? PH.MAX_SPEED,
-      keys: parseKeys(spec.keys),
-    };
+    const ball = { id, team, body, keys: parseKeys(spec.keys) };
     body.ball = ball;
     this.balls.push(ball);
     this.byId[id] = ball;
     let at;
-    if (spec.pos) at = { x: spec.pos[0] ?? spec.pos.x, y: spec.pos[1] ?? spec.pos.y };
-    else if (spec.tile) at = { x: (spec.tile[0] ?? spec.tile.x) * PH.TILE, y: (spec.tile[1] ?? spec.tile.y) * PH.TILE };
+    if (spec.pos) at = { x: spec.pos[0], y: spec.pos[1] };
+    else if (spec.tile) at = { x: spec.tile[0] * PH.TILE, y: spec.tile[1] * PH.TILE };
     else at = this.randomSpot(ball, spec.minDistance || 0);
-    this.place(id, at.x, at.y, spec.vel ? (spec.vel[0] ?? spec.vel.x) : 0, spec.vel ? (spec.vel[1] ?? spec.vel.y) : 0);
+    const vel = spec.vel || [0, 0];
+    this.place(id, at.x, at.y, vel[0], vel[1]);
     return ball;
   }
 
-  // a random interior tile centre, clear of the other balls and minDistance tiles from them
-  // (if the map is too small for minDistance: the free tile farthest from them)
+  removeBall(id) {
+    const b = this.ball(id);
+    this.world.DestroyBody(b.body);
+    this.balls.splice(this.balls.indexOf(b), 1);
+    delete this.byId[b.id];
+  }
+
+  // a random open tile centre clear of the other balls, minDistance tiles from them if possible
   randomSpot(self, minDistance = 0) {
-    if (!this.interior.length) throw new Error('map has no interior floor to spawn on');
+    if (!this.spawnable.length) throw new Error('map has no open floor to spawn on');
     const others = this.balls.filter((b) => b !== self && b.body.IsActive()).map((b) => b.body.GetPosition());
     const gap = (x, y) => Math.min(Infinity, ...others.map((o) => Math.hypot(o.x - x, o.y - y)));
     const free = PH.BALL_RADIUS * 2 + 0.01;
     const want = Math.max(free, minDistance * PH.TILE);
     for (let i = 0; i < 1000; i++) {
-      const t = this.interior[Math.floor(this.rng() * this.interior.length)];
+      const t = this.spawnable[Math.floor(this.rng() * this.spawnable.length)];
       const x = t.x * PH.TILE, y = t.y * PH.TILE;
       if (gap(x, y) >= want) return { x, y };
     }
     let best = null, bestGap = free;
-    for (const t of this.interior) {
+    for (const t of this.spawnable) {
       const x = t.x * PH.TILE, y = t.y * PH.TILE, d = gap(x, y);
       if (d >= bestGap) { best = { x, y }; bestGap = d; }
     }
-    if (!best) throw new Error('no free interior tile left for a ball');
+    if (!best) throw new Error('no free tile left for a ball');
     return best;
   }
 
-  // put a ball somewhere (like a TagPro respawn): stopped, unless a velocity is given
+  // put a ball somewhere, like a TagPro respawn: stopped unless a velocity is given
   place(id, x, y, vx = 0, vy = 0) {
     const b = this.ball(id).body;
     b.SetActive(true);
@@ -158,7 +178,7 @@ class Playground {
 
   setKeys(id, keys) { this.ball(id).keys = parseKeys(keys); }
 
-  // one 60 Hz tick. keys (optional): { ballId: keys } to set before stepping; unlisted balls keep theirs
+  // one 60 Hz tick. keys (optional): { ballId: keys } set first; other balls keep what they hold
   step(keys) {
     if (keys) for (const id in keys) this.setKeys(id, keys[id]);
     this.tick++;
@@ -167,31 +187,23 @@ class Playground {
     for (const b of this.balls) {
       b.body.SetAwake(true);
       const v = b.body.GetLinearVelocity();
-      const ms = b.ms, ac = b.ac, k = b.keys;
-      if (k.left && v.x > -ms) v.x -= ac;
-      if (k.right && v.x < ms) v.x += ac;
-      if (k.up && v.y > -ms) v.y -= ac;
-      if (k.down && v.y < ms) v.y += ac;
+      const k = b.keys;
+      if (k.left && v.x > -PH.MAX_SPEED) v.x -= PH.ACCEL;
+      if (k.right && v.x < PH.MAX_SPEED) v.x += PH.ACCEL;
+      if (k.up && v.y > -PH.MAX_SPEED) v.y -= PH.ACCEL;
+      if (k.down && v.y < PH.MAX_SPEED) v.y += PH.ACCEL;
       b.body.SetLinearVelocity(v);
     }
     return this;
   }
 
-  // run n ticks; control(pg) (optional) is called before each tick to set keys
-  run(n, control) {
-    for (let i = 0; i < n; i++) { if (control) control(this); this.step(); }
-    return this;
-  }
-
+  // { id, team, x, y, vx, vy, angle, spin, keys }
   ballState(id) {
     const b = this.ball(id), body = b.body, p = body.GetPosition(), v = body.GetLinearVelocity();
-    return {
-      id: b.id, team: b.team, x: p.x, y: p.y, vx: v.x, vy: v.y,
-      angle: body.GetAngle(), spin: body.GetAngularVelocity(), keys: keysToString(b.keys),
-    };
+    return { id: b.id, team: b.team, x: p.x, y: p.y, vx: v.x, vy: v.y, angle: body.GetAngle(), spin: body.GetAngularVelocity(), keys: keysToString(b.keys) };
   }
 
-  // pairs of balls touching right now, [[idA, idB], ...] (a "tag" in chase terms)
+  // pairs of balls touching right now: [[idA, idB], ...]
   contacts() {
     const out = [];
     if (this.ballCollisions) {
@@ -214,6 +226,7 @@ class Playground {
     return this.contacts().some(([x, y]) => (x === a && y === b) || (x === b && y === a));
   }
 
+  // { tick, balls: { id: ballState }, contacts }
   state() {
     const balls = {};
     for (const b of this.balls) balls[b.id] = this.ballState(b);
@@ -221,7 +234,4 @@ class Playground {
   }
 }
 
-const api = { Playground, parseKeys, keysToString, KEYS };
-if (isNode) module.exports = api;
-else globalThis.CPWorld = api;
-})();
+module.exports = { Playground, PHYSICS, parseKeys, keysToString };

@@ -6,10 +6,8 @@
 //
 // width/height must be odd (the workshop's own inputs step by 2). diagonals is the workshop's
 // "rand45s" slider; 0 = no 45 degree walls (the workshop only adds them when you press "45's").
-(function () {
-const isNode = typeof module !== 'undefined' && module.exports;
-const { makeRng } = isNode ? require('./rng') : globalThis.CPRng;
-const { fromGrid } = isNode ? require('./maps') : globalThis.CPMaps;
+const { makeRng } = require('./rng');
+const { fromGrid } = require('./maps');
 
 // workshop tile ids (its tileColors) -> TagPro tile ids, matched by PNG colour
 const WORKSHOP_TO_TAGPRO = { 0: 0, 1: 1, 2: 2, 3: 10, 4: 14, 5: 15, 6: 5, 7: 11, 8: 12, 9: 23, 10: 3, 11: 4, 12: 16, 13: 6, 14: 1.4, 15: 1.1, 16: 1.3, 17: 1.2 };
@@ -155,7 +153,4 @@ function generateMap(opts = {}) {
   return map;
 }
 
-const api = { generateMap, generateWorkshopGrid, WORKSHOP_TO_TAGPRO };
-if (isNode) module.exports = api;
-else globalThis.CPMapgen = api;
-})();
+module.exports = { generateMap };
