@@ -68,7 +68,6 @@ test('example scenarios all run', async () => {
   const dir = path.join(__dirname, '../scenarios');
   for (const f of require('fs').readdirSync(dir).filter((f) => /\.(js|json)$/.test(f))) {
     const scn = require(path.join(dir, f));
-    if (scn.map && scn.map.fm) continue; // needs the network
     const r = await cp.runScenario(path.join(dir, f), { trace: false });
     assert.ok(r.ticks > 0, f);
   }
@@ -80,27 +79,4 @@ test('a chase bot catches a ball that stands still', async () => {
     balls: [{ id: 'runner', team: 2, bot: 'idle' }, { id: 'chaser', team: 1, bot: 'chase', minDistance: 8 }],
   }, { trace: false });
   assert.strictEqual(r.stopped, 'tag', 'chaser never reached the runner');
-});
-
-test('Fortunate Maps: downloads png + json by id into the cache, then reads the cache', async (t) => {
-  const fs = require('fs'), os = require('os');
-  const src = path.resolve(__dirname, '../../tagpro-local/maps'); // real Fortunate Maps files
-  if (!fs.existsSync(path.join(src, '74431.png'))) return t.skip('needs ../tagpro-local/maps');
-  const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fm-'));
-  const realFetch = global.fetch, asked = [];
-  global.fetch = async (url) => { // stand-in for fortunatemaps.herokuapp.com
-    asked.push(url);
-    const m = /\/(png|json)\/(\d+)$/.exec(url);
-    const buf = fs.readFileSync(path.join(src, `${m[2]}.${m[1]}`));
-    return { ok: true, status: 200, arrayBuffer: async () => buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length) };
-  };
-  try {
-    const map = await cp.loadFortunateMap(74431, { cacheDir });
-    assert.deepStrictEqual(asked, ['https://fortunatemaps.herokuapp.com/png/74431', 'https://fortunatemaps.herokuapp.com/json/74431']);
-    assert.strictEqual(map.name, 'Moon Base');
-    assert.strictEqual(map.fm, 74431);
-    assert.ok(cp.interiorTiles(map).length > 100);
-    await cp.loadFortunateMap('74431', { cacheDir }); // cached: no new requests
-    assert.strictEqual(asked.length, 2);
-  } finally { global.fetch = realFetch; fs.rmSync(cacheDir, { recursive: true }); }
 });

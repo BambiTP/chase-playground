@@ -6,7 +6,7 @@ physics**. There are no boosts, spikes, flags, powerups or tags. The only collis
 against walls and against each other.
 
 - The physics is [tagpro-local](https://github.com/BambiTP/tagpro-local)'s game server with everything except movement removed. It uses the same Box2D build as the official client, the same constants, and the same tick order. A test runs both engines side by side and checks they match bit for bit.
-- Maps come from the [BuildAMapWorkshop](https://github.com/BambiTP/BuildAMapWorkshop) generator (ported here with a seed), Fortunate Maps (by id), any TagPro map PNG, or ASCII you type in.
+- Maps come from the [BuildAMapWorkshop](https://github.com/BambiTP/BuildAMapWorkshop) generator (ported here with a seed), any TagPro map PNG, or ASCII you type in.
 - Scenarios are small JS files that set the map, where the balls start, and what each ball presses.
 - Runs about 700× real time in Node (about 43k ticks/s with 2 balls).
 
@@ -15,7 +15,7 @@ npm install
 npm test                                       # includes the parity test against tagpro-local
 npm run viewer                                 # http://localhost:8060: play, watch, record keys
 node bin/run.js scenarios/straight-chase.js    # run a scenario
-node bin/run.js --map fm:74431                 # print a map as ASCII (also gen:<seed>, file.png)
+node bin/run.js --map gen:7                    # print a map as ASCII (also file.png)
 ```
 
 ## The physics
@@ -43,8 +43,7 @@ circles. Here they are not.
 
 ```js
 { generate: { seed: 7, width: 45, height: 45, randLeft: 0.5, randRight: 0.5, diagonals: 0.5 } }
-{ fm: 74431 }                       // fortunatemaps.herokuapp.com/map/74431, cached in .fm-cache/
-{ png: 'maps/mymap.png' }           // any TagPro map PNG (Fortunate Maps, BuildAMapWorkshop "Download PNG")
+{ png: 'maps/mymap.png' }           // any TagPro map PNG (e.g. BuildAMapWorkshop "Download PNG")
 { ascii: `
 #########
 #◤.....◥#
@@ -120,7 +119,7 @@ Other entry points:
 
 - `cp.runScenario(fileOrObject)` runs a scenario to the end.
 - `cp.prepareScenario(...)` returns `{ pg, control }`. Call `control()` to apply the scripted and bot keys, override any ball with `pg.setKeys`, then call `pg.step()`.
-- `cp.loadFortunateMap(id)`, `cp.loadMapFile(png)`, `cp.fromAscii(text)` and `cp.toAscii(map)` load and print maps.
+- `cp.loadMapFile(png)`, `cp.fromAscii(text)` and `cp.toAscii(map)` load and print maps.
 
 ### Python (or any other language)
 
@@ -139,7 +138,7 @@ position, velocity, angle and spin to be **bit-identical on every tick**. It cov
 - a crowded small map with hundreds of ball-to-ball collisions
 - an ASCII box where balls are launched into each other
 - `ballCollisions: false` compared with TagPro's `noPlayerCollisions` ghost mode
-- three real Fortunate Maps maps
+- three real TagPro maps (PNG files from tagpro-local's `maps/`)
 
 It also checks that `engine/box2d.js` is byte-identical to tagpro-local's copy and that the
 constants match.
@@ -162,11 +161,11 @@ src/physics.js      constants
 src/world.js        Playground: walls, balls, step, contacts
 src/maps.js         PNG colours -> tiles, ASCII maps, spawn area      (browser + Node)
 src/mapgen.js       BuildAMapWorkshop generator, seeded               (browser + Node)
-src/maps-node.js    PNG files, Fortunate Maps download + cache        (Node)
+src/maps-node.js    PNG files                                         (Node)
 src/bots.js         built-in bots
 src/scenario.js     scenarios, key scripts
 bin/run.js          run a scenario from the command line
-bin/viewer.js       viewer server (also fetches Fortunate Maps for the page)
+bin/viewer.js       viewer server
 bin/serve.js        JSON-lines bridge
 viewer/index.html   the viewer
 scenarios/          examples

@@ -59,7 +59,6 @@
       <label><span>Source</span>
         <select id="mapSource">
           <option value="generate">Generate (BuildAMapWorkshop)</option>
-          <option value="fm">Fortunate Maps id</option>
           <option value="png">PNG file</option>
           <option value="ascii">ASCII</option>
         </select>
@@ -71,13 +70,9 @@
         <label><span>Right up %</span><input type="range" id="genR" min="0" max="100" value="50"></label>
         <label><span>45s chance</span><input type="range" id="gen45" min="0" max="100" value="50"></label>
       </div>
-      <div data-src="fm" class="hidden">
-        <label><span>Map id</span><input type="number" id="fmId" value="74431" style="width:100px"></label>
-        <div class="help">The number in fortunatemaps.herokuapp.com/map/&lt;id&gt;. Needs <code>npm run viewer</code>.</div>
-      </div>
       <div data-src="png" class="hidden">
         <label><span>Map PNG</span><input type="file" id="pngFile" accept="image/png" style="width:170px"></label>
-        <div class="help">A TagPro map PNG: Fortunate Maps download, or BuildAMapWorkshop's "Download PNG".</div>
+        <div class="help">A TagPro map PNG, e.g. BuildAMapWorkshop's "Download PNG".</div>
       </div>
       <div data-src="ascii" class="hidden">
         <textarea id="asciiText" rows="8">##############
@@ -163,11 +158,6 @@ document.querySelectorAll('#mapSource').forEach((s) => s.addEventListener('chang
 async function mapFromSpec(spec) {
   if (spec.generate) return CPMapgen.generateMap(spec.generate);
   if (spec.ascii) return CPMaps.fromAscii(spec.ascii);
-  if (spec.fm) {
-    const r = await fetch('/api/fm/' + spec.fm).catch(() => null);
-    if (!r || !r.ok) throw new Error(r ? await r.text() : 'Fortunate Maps needs the viewer server (npm run viewer)');
-    return r.json();
-  }
   if (spec.png) return mapFromPngUrl(spec._url || ('/scenarios/' + spec.png), spec.png);
   throw new Error('unknown map spec');
 }
@@ -188,7 +178,6 @@ function mapFromPngUrl(url, name) {
 function specFromUi() {
   const src = $('mapSource').value;
   if (src === 'generate') return { generate: { seed: +$('genSeed').value, width: +$('genW').value, height: +$('genH').value, randLeft: $('genL').value / 100, randRight: $('genR').value / 100, diagonals: $('gen45').value / 100 } };
-  if (src === 'fm') return { fm: +$('fmId').value };
   if (src === 'ascii') return { ascii: $('asciiText').value };
   const f = $('pngFile').files[0];
   if (!f) throw new Error('pick a PNG file');

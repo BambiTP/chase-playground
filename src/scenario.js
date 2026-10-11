@@ -3,7 +3,7 @@
 // {
 //   name: 'my scenario',
 //   seed: 1,                            random spawns / random bots
-//   map: { generate: { seed: 7, width: 45, height: 45 } }   (or { ascii }, { fm: id }, { png, json }, a map)
+//   map: { generate: { seed: 7, width: 45, height: 45 } }   (or { ascii }, { png, json }, a map)
 //   ticks: 600,                         60 ticks = 1 second
 //   stopWhen: 'tag',                    optional: 'tag' (any two balls touch) or (pg) => boolean
 //   ballCollisions: true,               false = balls pass through each other

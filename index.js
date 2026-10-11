@@ -4,7 +4,7 @@ const { Playground, parseKeys, keysToString, KEYS } = require('./src/world');
 const { PHYSICS } = require('./src/physics');
 const maps = require('./src/maps');
 const { generateMap } = require('./src/mapgen');
-const { loadMapFile, loadFortunateMap, resolveMap } = require('./src/maps-node');
+const { loadMapFile, resolveMap } = require('./src/maps-node');
 const { bots, toward } = require('./src/bots');
 const scenario = require('./src/scenario');
 
@@ -28,7 +28,7 @@ async function prepareScenario(scn, opts = {}) {
 
 module.exports = {
   Playground, PHYSICS, KEYS, parseKeys, keysToString,
-  generateMap, loadMapFile, loadFortunateMap, resolveMap,
+  generateMap, loadMapFile, resolveMap,
   fromAscii: maps.fromAscii, toAscii: maps.toAscii, fromGrid: maps.fromGrid, interiorTiles: maps.interiorTiles,
   bots, toward,
   parseScript: scenario.parseScript, runScenario, prepareScenario,

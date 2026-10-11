@@ -129,7 +129,7 @@ test('ballCollisions: false matches TagPro ghost mode "noPlayerCollisions"', { s
 const fmDir = path.join(TPL, 'maps');
 const fmMaps = have && fs.existsSync(fmDir) ? fs.readdirSync(fmDir).filter((f) => f.endsWith('.png')).sort().slice(0, 3) : [];
 for (const f of fmMaps) {
-  test(`Fortunate Maps map ${f} (from tagpro-local/maps): identical every tick`, { skip }, () => {
+  test(`real TagPro map ${f} (from tagpro-local/maps): identical every tick`, { skip }, () => {
     compare(loadMapFile(path.join(fmDir, f)), { balls: 8, seed: 7, ticks: 2400 });
   });
 }

@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 // Serves the browser viewer at http://localhost:8060 (PORT to change). It also lists the
-// scenarios/ folder and fetches Fortunate Maps for the page (browsers can't, no CORS).
+// scenarios/ folder for the page.
 //   node bin/viewer.js
 const http = require('http'), fs = require('fs'), path = require('path');
-const { loadFortunateMap } = require('../src/maps-node');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = Number(process.env.PORT) || 8060;
@@ -18,11 +17,6 @@ const server = http.createServer(async (req, res) => {
     if (url === '/api/scenarios') {
       const dir = path.join(ROOT, 'scenarios');
       return send(200, JSON.stringify(fs.readdirSync(dir).filter((f) => /\.(js|json)$/.test(f)).sort()), TYPES['.json']);
-    }
-    const fm = /^\/api\/fm\/(\d+)$/.exec(url);
-    if (fm) { // the map's walls as a map object, from .fm-cache/ or Fortunate Maps
-      const map = await loadFortunateMap(fm[1]);
-      return send(200, JSON.stringify({ name: map.name, width: map.width, height: map.height, tiles: map.tiles, fm: map.fm }), TYPES['.json']);
     }
     const file = path.normalize(path.join(ROOT, url));
     const top = path.relative(ROOT, file).split(path.sep)[0];

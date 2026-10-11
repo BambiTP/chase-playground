@@ -4,7 +4,7 @@
 //   node bin/run.js scenarios/straight-chase.js --out trace.json    every tick's state (or .csv)
 //   node bin/run.js scenarios/straight-chase.js --every 15 --out t.csv
 //   node bin/run.js scenarios/straight-chase.js --ticks 300 --map
-//   node bin/run.js --map fm:74431        just print a map (also gen:<seed>, file.png, scenario.js)
+//   node bin/run.js --map gen:7           just print a map (also file.png)
 const fs = require('fs'), path = require('path');
 const cp = require('..');
 
@@ -14,7 +14,6 @@ const opt = (n) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : un
 const positional = args.filter((a, i) => !a.startsWith('--') && !['--out', '--every', '--ticks'].includes(args[i - 1]));
 
 function mapSpec(s) {
-  if (/^fm:\d+$/.test(s)) return { fm: Number(s.slice(3)) };
   if (/^gen:\d+$/.test(s)) return { generate: { seed: Number(s.slice(4)) } };
   if (/\.png$/i.test(s)) return { png: path.resolve(s) };
   return null;
@@ -22,7 +21,7 @@ function mapSpec(s) {
 
 (async () => {
   const target = positional[0];
-  if (!target) { console.error('usage: node bin/run.js <scenario.js|.json> [--out trace.json|.csv] [--every n] [--ticks n] [--map]\n       node bin/run.js --map <fm:id | gen:seed | map.png>'); process.exit(1); }
+  if (!target) { console.error('usage: node bin/run.js <scenario.js|.json> [--out trace.json|.csv] [--every n] [--ticks n] [--map]\n       node bin/run.js --map <gen:seed | map.png>'); process.exit(1); }
   const spec = mapSpec(target);
   if (spec) {
     const map = await cp.resolveMap(spec);
